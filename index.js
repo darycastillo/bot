@@ -1,63 +1,49 @@
-const Telegraf = require('telegraf');
-const Markup = require("telegraf/markup");
-const Stage = require("telegraf/stage");
-const session = require("telegraf/session");
-const WizardScene = require("telegraf/scenes/wizard");
-
-const loveCalculator = require("./api/loveCalculator");
+require("dotenv").config();
+const Telegraf = require('telegraf')
+const session = require('telegraf/session')
+const services = require('./api/cursos')
 
 const bot = new Telegraf(process.env.BOT_TOKEN)
 
-bot.start(ctx => {
-  ctx.reply(
-    `Hello ${ctx.from.first_name}, would you like to know the love compatibility?`,
-    Markup.inlineKeyboard([
-      Markup.callbackButton("Love Calculate", "LOVE_CALCULATE")
-    ]).extra()
-  );
+// // Register session middleware
+bot.use(session())
+
+// Register logger middleware
+bot.use((ctx, next) => {
+  const start = new Date()
+  return next().then(() => {
+    const ms = new Date() - start
+    console.log('response time %sms', ms)
+  })
+})
+
+bot.hears(/notas (.+)/, ({ match, reply }) => {
+  const nombre = match[1];
+  //hacer llamada al API
+  reply(nombre);
 });
 
-const loveCalculate = new WizardScene(
-  "love_calculate",
-  ctx => {
-    ctx.reply("Please, enter your name");
-    return ctx.wizard.next();
-  },
-  ctx => {
-    ctx.wizard.state.yourName = ctx.message.text;
-    ctx.reply(
-      "Enter the name of your partner/lover/crush to find Love compatibility & chances of successful love relationship."
-    );
-    return ctx.wizard.next();
-  },
-  ctx => {
-    const partnerName = ctx.message.text;
-    const yourName = ctx.wizard.state.yourName;
-    loveCalculator
-      .getPercentage(yourName, partnerName)
-      .then(res => {
-        const { fname, sname, percentage, result } = res.data;
-        ctx.reply(
-          `${fname} + ${sname} = ${percentage}% \n ${percentage > 50 ? '☺️' : '😢'} ${result}`,
-          Markup.inlineKeyboard([
-            Markup.callbackButton(
-              "♥️ calculate Another Relationship",
-              "LOVE_CALCULATE"
-            )
-          ]).extra()
-        );
-      })
-      .catch(err => ctx.reply(
+bot.hears(/cursos (.+)/, ({ match, reply }) => {
+  const nombre = match[1];
+  //hacer llamada al API
+  services
+    .getCursos(nombre)
+    .then(({ data }) => {
+      console.log(data);
+      reply(JSON.stringify(data.Cursos));
+    })
+    .catch((err) =>
+      reply(
         err.message,
-        Markup.inlineKeyboard([
-          Markup.callbackButton("calculate again", "LOVE_CALCULATE")
-        ]).extra()
-      ));
-    return ctx.scene.leave();
-  }
+        "Escribe /notas o /cursos seguido del nombre del estuidante, Eje. * /notas juan *"
+      )
+    );
+});
+
+bot.on("message", (ctx) =>
+  ctx.reply(
+    "Escribe /notas o /cursos seguido del nombre del estuidante, Eje. * /notas juan *"
+  )
 );
 
-const stage = new Stage([loveCalculate], { default: "love_calculate" });
-bot.use(session());
-bot.use(stage.middleware());
-bot.launch();
+bot.launch()
