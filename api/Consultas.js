@@ -1,6 +1,6 @@
 const axios = require("axios");
 
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = process.env.API;
 
 const getCursosByCarnet = async (carnet) => {
   const {
